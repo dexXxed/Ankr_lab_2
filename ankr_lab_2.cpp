@@ -246,13 +246,13 @@ int main()
 	DWORD k = 11;
 	std::string keyset_name = "dexxxed";
 	DWORD alg_exchange_id = 41984, // RSA Key Exchange 
-		  alg_sign_id = 9216, // RSA Signature
-	      alg_sblock_id = 26128; // AES 256-bit
+		alg_sign_id = 9216, // RSA Signature
+		alg_sblock_id = 26128; // AES 256-bit
 	HCRYPTPROV csp_handler = 0;
 	HCRYPTKEY key_exchange_handler = 0,
-			  key_sign_handler = 0,
-	          key_sblock_handler = 0,
-	          imported_key_handler = 0;
+		key_sign_handler = 0,
+		key_sblock_handler = 0,
+		imported_key_handler = 0;
 	const char* filename = "1.key";
 	try
 	{
@@ -281,6 +281,6 @@ int main()
 		cout << "Error " << error << endl;
 		cout << "GetLastError = " << GetLastError() << endl;
 	}
-	system("pause"); 
+	system("pause");
 	return 0;
 }

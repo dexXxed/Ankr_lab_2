@@ -66,6 +66,7 @@ void get_exchange_key(HCRYPTPROV csp_handler, DWORD alg_id, DWORD k, HCRYPTKEY& 
 	csp_alg_properties alg_prop;
 	get_alg_properties(csp_handler, alg_id, alg_prop);
 	DWORD keylen = get_key_len(alg_prop.enumalgs.dwMinLen, alg_prop.enumalgs.dwMaxLen, alg_prop.keyx_key_inc, k);
+	cout << "Keylen for algid " << alg_id << " for k = " << k << " - " << keylen << endl;
 	DWORD flags = keylen << 16;
 	flags |= CRYPT_EXPORTABLE;
 	flags |= CRYPT_USER_PROTECTED;
@@ -99,13 +100,13 @@ void get_csp_handler(DWORD csp_type, LPTSTR csp_name, const std::string keyset_n
 	std::vector<std::string> containers;
 	if (!CryptAcquireContext(&handler, NULL, csp_name, csp_type, 0))
 	{
-		if (GetLastError() == 0x80090016L)
+		if (GetLastError() == NTE_BAD_KEYSET)
 		{
 			cout << "Create " << keyset_name << " keycontainer" << endl;
 			CryptReleaseContext(handler, 0);
 			if (!CryptAcquireContext(&handler, (LPCWSTR)keyset_name.c_str(), csp_name, csp_type, CRYPT_NEWKEYSET))
 			{
-				if (GetLastError() == 0x8009000FL)
+				if (GetLastError() == NTE_EXISTS)
 				{
 					CryptReleaseContext(handler, 0);
 					if (!CryptAcquireContext(&handler, (LPCWSTR)keyset_name.c_str(), csp_name, csp_type, 0))
@@ -151,6 +152,7 @@ void get_sblock_key(HCRYPTPROV csp_handler, DWORD alg_id, HCRYPTKEY& key_handler
 		throw "in key create";
 	block_key_info info{};
 	info.mode = CRYPT_MODE_CFB;
+	
 	DWORD dword_size = sizeof(DWORD);
 	if (!CryptGetKeyParam(key_handler, KP_BLOCKLEN, (BYTE*) & (info.block_byte_size), &dword_size, 0))
 		throw "in get key block size";
@@ -166,12 +168,14 @@ void get_key_info(HCRYPTKEY key_handler, block_key_info& info)
 	DWORD dword_size = sizeof(DWORD);
 	if (!CryptGetKeyParam(key_handler, KP_MODE, (BYTE*) & (info.mode), &dword_size, 0))
 		throw "in get key mode";
-	if (!CryptGetKeyParam(key_handler, KP_BLOCKLEN, (BYTE*) & (info.block_byte_size), &dword_size, 0))
+	if (!CryptGetKeyParam(key_handler, KP_BLOCKLEN, (BYTE*) & (info.block_byte_size), &dword_size, 0)) 
 		throw "in get key block size";
 	info.block_byte_size /= 8;
 	info.iv = new BYTE[info.block_byte_size];
-	if (!CryptGetKeyParam(key_handler, KP_IV, info.iv, &(info.block_byte_size), 0))
+	if (!CryptGetKeyParam(key_handler, KP_IV, info.iv, &(info.block_byte_size), 0)) {
 		throw "in get key block";
+	}
+		
 }
 
 void export_key(HCRYPTKEY key_handler, HCRYPTKEY expkey_handler, const char* filename)
@@ -230,12 +234,12 @@ void get_key_val(HCRYPTKEY key_handler, key_val& key)
 	DWORD dword_size = sizeof(DWORD);
 	if (!CryptGetKeyParam(key_handler, KP_KEYLEN, (BYTE*) & (key.byte_size), &dword_size, 0))
 		throw "in get keylen";
-	key.byte_size /= 4;
+	key.byte_size /= 8;
 }
 
 std::ostream& operator<<(std::ostream& os, const key_val& key)
 {
-	os << "[" << key.byte_size << "]";
+	os << "["<< key.byte_size << "]";
 	return os;
 }
 
@@ -253,18 +257,17 @@ int main()
 		key_sign_handler = 0,
 		key_sblock_handler = 0,
 		imported_key_handler = 0;
-	const char* filename = "1.key";
-	try
-	{
+	const char* filename = "1";
+	try {
 		cout << "Creating keys..." << endl;
 		get_csp_handler(csp_type, csp_name, keyset_name, csp_handler);
 		get_exchange_key(csp_handler, alg_exchange_id, k, key_exchange_handler);
 		get_exchange_key(csp_handler, alg_sign_id, k, key_sign_handler);
 		get_sblock_key(csp_handler, alg_sblock_id, key_sblock_handler);
 		cout << "Key created, handlers:" << endl;
-		cout << "Exchange: " << key_exchange_handler << endl;
-		cout << "Sign:     " << key_sign_handler << endl;
-		cout << "SBlock:   " << key_sblock_handler << endl;
+		cout << "Exchange container: " << key_exchange_handler << " algid: " << alg_exchange_id << " (RSA Key Exchange)" << endl;
+		cout << "Sign container:     "<< key_sign_handler << " algid: " << alg_sign_id << " (RSA Signature)" << endl;
+		cout << "SBlock container:   " << key_sblock_handler << " algid: " << alg_sblock_id << " (Advanced Encryption Standard 256-bit)" << endl;
 		cout << endl << "Export/Import key..." << endl;
 		key_val key;
 		get_key_val(key_sblock_handler, key);
